@@ -15,7 +15,7 @@ app = FastAPI(
     version="1.0"
 )
 
-# Подключаем роутер с префиксом /auth
+# Подключаем роутер с префиксом /authц
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 
 if __name__ == "__main__":
