@@ -18,6 +18,10 @@ app = FastAPI(
 # Подключаем роутер с префиксом /authц
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 
+@app.get("/")
+async def read_root():
+    return {"message": "Приложение работает как часы!"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
