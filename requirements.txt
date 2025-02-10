@@ -1,0 +1,8 @@
+# Файл зависимостей для микросервиса авторизации.
+fastapi==0.95.2
+uvicorn==0.20.0
+sqlalchemy==1.4.47
+asyncpg==0.27.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0 
