@@ -5,6 +5,11 @@
 """
 
 import os
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения из файла .env
+load_dotenv()
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import declarative_base
@@ -28,3 +33,6 @@ async def get_db():
     """
     async with async_session() as session:
         yield session 
+
+supabase_api_key = os.getenv("SUPABASE_API_KEY")
+# Далее используйте supabase_api_key в вашей логике работы с Supabase 
