@@ -55,13 +55,15 @@ async def register(user: UserIn):
     Эндпоинт для регистрации пользователя.
 
     Регистрируем пользователя через Supabase и запускаем процесс подтверждения email,
-    передавая параметр "redirect_to" с URL-адресом подтверждения.
+    передавая параметр "redirect_to" внутри опций с URL-адресом подтверждения.
     """
-    response = supabase.auth.sign_up(
-        user.email,
-        user.password,
-        redirect_to="https://plaindesk-auth-d79316ebc4f2.herokuapp.com/auth/verify"
-    )
+    response = supabase.auth.sign_up({
+        "email": user.email,
+        "password": user.password,
+        "options": {
+            "redirect_to": "https://plaindesk-auth-d79316ebc4f2.herokuapp.com/auth/verify"
+        }
+    })
 
     if response.get("error"):
         raise HTTPException(
