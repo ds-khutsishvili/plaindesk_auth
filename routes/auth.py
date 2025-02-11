@@ -66,15 +66,16 @@ async def register(user: UserIn):
     })
 
     # Проверяем наличие ошибки в ответе
-    if response.get("error"):
+    if response.error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=response["error"]["message"]
+            detail=response.error.message
         )
 
+    # Возвращаем данные пользователя, если регистрация успешна
     return {
         "message": "Регистрация успешна! Проверьте вашу почту для подтверждения email.",
-        "user": response.get("data")
+        "user": response.data
     }
 
 @router.get("/verify")
