@@ -56,10 +56,11 @@ async def register(user: UserIn):
     """
     # Регистрация пользователя через Supabase
     response = supabase.auth.sign_up({"email": user.email, "password": user.password})
-    if response.error:
+    response_dict = response.__dict__
+    if response_dict.get("error"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=response.error.message
+            detail=response_dict["error"].message
         )
     # После успешной регистрации генерируем JWT токен
     jwt_token = create_jwt_token(user.email)
@@ -71,10 +72,11 @@ async def login(user: UserIn):
     Аутентификация пользователя через Supabase и выдача JWT токена.
     """
     response = supabase.auth.sign_in_with_password({"email": user.email, "password": user.password})
-    if response.error:
+    response_dict = response.__dict__
+    if response_dict.get("error"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=response.error.message
+            detail=response_dict["error"].message
         )
     # Если аутентификация прошла успешно – генерируем JWT токен
     jwt_token = create_jwt_token(user.email)
