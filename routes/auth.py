@@ -49,22 +49,45 @@ def create_jwt_token(subject: str):
     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=ALGORITHM)
     return token
 
-@router.post("/register", response_model=Token)
+@router.post("/register")
 async def register(user: UserIn):
     """
-    Регистрация нового пользователя через Supabase.
+    Эндпоинт для регистрации пользователя.
+    
+    При вызове этот эндпоинт отправляет запрос в Supabase для регистрации
+    и запускает процесс подтверждения email.
+    
+    В запросе передаются email и password. В параметрах опций указывается redirect URL,
+    на который пользователь будет перенаправлен после подтверждения email.
     """
-    # Регистрация пользователя через Supabase
-    response = supabase.auth.sign_up({"email": user.email, "password": user.password})
-    response_dict = response.__dict__
-    if response_dict.get("error"):
+    response = supabase.auth.sign_up(
+        {
+            "email": user.email,
+            "password": user.password,
+        },
+        {"redirectTo": "https://plaindesk-auth-d79316ebc4f2.herokuapp.com/auth/verify"}
+    )
+
+    if response.get("error"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=response_dict["error"].message
+            detail=response.get("error").get("message")
         )
-    # После успешной регистрации генерируем JWT токен
-    jwt_token = create_jwt_token(user.email)
-    return {"access_token": jwt_token, "token_type": "bearer"}
+
+    return {
+        "message": "Регистрация успешна! Проверьте вашу почту для подтверждения email.",
+        "user": response.get("data")
+    }
+
+@router.get("/verify")
+async def verify_email():
+    """
+    Эндпоинт для обработки редиректа после подтверждения email.
+    
+    После того как пользователь переходит по ссылке из письма,
+    ему возвращается сообщение об успешном подтверждении email.
+    """
+    return {"message": "Ваш email успешно подтверждён! Теперь вы можете войти в систему."}
 
 @router.post("/login", response_model=Token)
 async def login(user: UserIn):
