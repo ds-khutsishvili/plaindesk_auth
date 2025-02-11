@@ -57,21 +57,21 @@ async def register(user: UserIn):
     Регистрируем пользователя через Supabase и запускаем процесс подтверждения email,
     передавая параметр "redirect_to" с URL-адресом подтверждения.
     """
-    response = supabase.auth.sign_up({
-        "email": user.email,
-        "password": user.password,
-        "redirect_to": "https://plaindesk-auth-d79316ebc4f2.herokuapp.com/auth/verify"
-    })
+    response = supabase.auth.sign_up(
+        user.email,
+        user.password,
+        redirect_to="https://plaindesk-auth-d79316ebc4f2.herokuapp.com/auth/verify"
+    )
 
-    if response.error:
+    if response.get("error"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=response.error.message
+            detail=response["error"]["message"]
         )
 
     return {
         "message": "Регистрация успешна! Проверьте вашу почту для подтверждения email.",
-        "user": response.data
+        "user": response.get("data")
     }
 
 @router.get("/verify")
