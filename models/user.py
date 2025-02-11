@@ -26,8 +26,8 @@ class User(Base):
 
 # Pydantic модель для регистрации нового пользователя.
 class UserCreate(BaseModel):
-    username: UsernameStr  # Ограничения на длину имени
-    password: PasswordStr  # Ограничения на длину пароля
+    username: str = Field(..., min_length=3, max_length=50)  # Ограничения на длину имени
+    password: str = Field(..., min_length=6, max_length=128)   # Ограничения на длину пароля
 
     class Config:
         orm_mode = True
