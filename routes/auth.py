@@ -9,6 +9,7 @@
 
 import os
 from datetime import datetime, timedelta
+import logging
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
@@ -16,6 +17,9 @@ from pydantic import BaseModel, EmailStr
 from supabase import create_client, Client
 from jose import jwt
 from passlib.context import CryptContext
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
 
 # Загрузка переменных окружения
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -65,11 +69,15 @@ async def register(user: UserIn):
         }
     })
 
+    # Логируем полный ответ от Supabase
+    logging.info(f"Supabase response: {response}")
+
     # Проверяем наличие ошибки в ответе
-    if response.error:
+    if response.data is None or response.status_code != 200:
+        error_message = response.data.get("error") if response.data else "Unknown error"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=response.error.message
+            detail=f"Ошибка регистрации: {error_message} (статус {response.status_code})"
         )
 
     # Возвращаем данные пользователя, если регистрация успешна
