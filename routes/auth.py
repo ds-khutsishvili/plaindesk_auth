@@ -53,12 +53,9 @@ def create_jwt_token(subject: str):
 async def register(user: UserIn):
     """
     Эндпоинт для регистрации пользователя.
-    
-    При вызове этот эндпоинт отправляет запрос в Supabase для регистрации
-    и запускает процесс подтверждения email.
-    
-    В запросе передаются email и password, а также параметр redirect_to,
-    который указывает URL для редиректа после подтверждения email.
+
+    Регистрируем пользователя через Supabase и запускаем процесс подтверждения email,
+    передавая параметр "redirect_to" с URL-адресом подтверждения.
     """
     response = supabase.auth.sign_up({
         "email": user.email,
@@ -66,15 +63,15 @@ async def register(user: UserIn):
         "redirect_to": "https://plaindesk-auth-d79316ebc4f2.herokuapp.com/auth/verify"
     })
 
-    if response.get("error"):
+    if response.error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=response.get("error").get("message")
+            detail=response.error.message
         )
 
     return {
         "message": "Регистрация успешна! Проверьте вашу почту для подтверждения email.",
-        "user": response.get("data")
+        "user": response.data
     }
 
 @router.get("/verify")
