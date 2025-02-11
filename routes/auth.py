@@ -59,7 +59,7 @@ async def register(user: UserIn):
     Эндпоинт для регистрации пользователя.
 
     Регистрируем пользователя через Supabase и запускаем процесс подтверждения email,
-    передавая параметр "redirect_to" внутри опций с URL-адресом подтверждения.
+    передавая параметр "email_redirect_to" внутри опций с URL-адресом подтверждения.
     """
     response = supabase.auth.sign_up({
         "email": user.email,
@@ -73,8 +73,8 @@ async def register(user: UserIn):
     logging.info(f"Supabase response: {response}")
 
     # Проверяем наличие ошибки в ответе
-    if response.get("user") is None:
-        error_message = "Ошибка регистрации: пользователь не создан."
+    if response.user is None:
+        error_message = response.error.message if response.error else "Ошибка регистрации: пользователь не создан."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_message
@@ -83,7 +83,7 @@ async def register(user: UserIn):
     # Возвращаем данные пользователя, если регистрация успешна
     return {
         "message": "Регистрация успешна! Проверьте вашу почту для подтверждения email.",
-        "user": response["user"]
+        "user": response.user
     }
 
 @router.get("/verify")
