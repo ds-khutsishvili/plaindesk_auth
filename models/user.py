@@ -8,11 +8,13 @@
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import declarative_base
-from pydantic import BaseModel, constr
+from pydantic import BaseModel, constr, Field
 
 # Создаем базовый класс для ORM моделей.
 Base = declarative_base()
 
+UsernameStr = constr(min_length=3, max_length=50)
+PasswordStr = constr(min_length=6, max_length=128)
 
 # ORM-модель для хранения информации о пользователе.
 class User(Base):
@@ -24,8 +26,8 @@ class User(Base):
 
 # Pydantic модель для регистрации нового пользователя.
 class UserCreate(BaseModel):
-    username: constr(min_length=3, max_length=50)  # Ограничения на длину имени
-    password: constr(min_length=6, max_length=128)   # Ограничения на длину пароля
+    username: UsernameStr  # Ограничения на длину имени
+    password: PasswordStr  # Ограничения на длину пароля
 
     class Config:
         orm_mode = True
