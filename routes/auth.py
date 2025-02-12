@@ -11,7 +11,8 @@ import os
 from datetime import datetime, timedelta
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 
 from supabase import create_client, Client
@@ -96,6 +97,22 @@ async def verify_email():
     """
     return {"message": "Ваш email успешно подтверждён! Теперь вы можете войти в систему."}
 
+@router.get("/logout")
+async def logout():
+    """
+    Эндпоинт для выхода из приложения и закрытия сессии через Supabase.
+    """
+    response = supabase.auth.sign_out()
+    
+    if response.user is None:
+        error_message = response.error.message if response.error else "Ошибка при выходе из системы"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=error_message
+        )
+
+    return {"message": "Вы успешно вышли из приложения"}
+
 @router.post("/login", response_model=Token)
 async def login(user: UserIn):
     """
@@ -108,6 +125,29 @@ async def login(user: UserIn):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=response_dict["error"].message
         )
-    # Если аутентификация прошла успешно – генерируем JWT токен
-    jwt_token = create_jwt_token(user.email)
-    return {"access_token": jwt_token, "token_type": "bearer"} 
+    # Получаем токен из ответа Supabase
+    access_token = response_dict["session"].access_token
+    return {"access_token": access_token, "token_type": "bearer"}
+
+security = HTTPBearer()
+
+def get_current_user(token: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Использует запрос getsession от Supabase для получения данных сессии/пользователя.
+    """
+    # Используем API-запрос Supabase для получения информации о пользователе по JWT
+    user_response = supabase.auth.api.get_user(token.credentials)
+    if user_response.error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=user_response.error.message
+        )
+    return user_response.user
+
+@router.get("/me")
+async def get_me(user = Depends(get_current_user)):
+    """
+    Эндпоинт для получения данных текущего пользователя.
+    Реализовано с использованием запроса getsession в Supabase.
+    """
+    return {"user": user}
