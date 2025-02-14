@@ -57,13 +57,10 @@ async def register(user: UserIn):
         "email": user.email,
         "password": user.password,
         "options": {
-            "email_redirect_to": os.getenv("EMAIL_REDIRECT_URL", "https://YOUR_FRONTEND_URL/verify")  # Используем переменную окружения
+            "email_redirect_to": os.getenv("EMAIL_REDIRECT_URL", "https://YOUR_FRONTEND_URL/verify")
         }
     })
-    # Логируем ответ для отладки
-    logging.info(f"Supabase sign up response: {resp}")
-
-    if resp.user is None:
+    if resp.status_code != 200 or not resp.user:
         err_msg = resp.error.message if resp.error else "Ошибка регистрации: пользователь не создан."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -84,27 +81,14 @@ async def login(user: UserIn):
         "email": user.email,
         "password": user.password
     })
-    auth_dict = auth_resp.__dict__
-    if auth_dict.get("error"):
+    if auth_resp.status_code != 200 or not auth_resp.session:
+        err_msg = auth_resp.error.message if auth_resp.error else "Ошибка аутентификации."
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=auth_dict["error"].message
+            detail=err_msg
         )
-    session = auth_dict.get("session")
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Сессия не создана."
-        )
-    access_token = session.access_token
-    refresh_token = session.refresh_token
-
-    # Логирование токенов
-    logging.info(f"Access Token: {access_token}")
-    logging.info(f"Refresh Token: {refresh_token}")
-
-    # Возвращаем оба токена в ответе
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+    session = auth_resp.session
+    return {"access_token": session.access_token, "refresh_token": session.refresh_token, "token_type": "bearer"}
 
 # Эндпоинт: выход (logout)
 @router.post("/logout")
@@ -113,11 +97,9 @@ async def logout(response: Response):
     Завершает сессию пользователя через Supabase и очищает refresh token cookie.
     """
     signout_resp = supabase.auth.sign_out()
-    signout_dict = signout_resp.__dict__
-    if signout_dict.get("error"):
-        err_msg = signout_dict["error"].message
+    if signout_resp.status_code != 200:
+        err_msg = signout_resp.error.message if signout_resp.error else "Ошибка выхода."
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
-    # Очистка refresh token cookie
     response.delete_cookie("refresh_token")
     return {"message": "Вы успешно вышли из приложения."}
 
@@ -135,27 +117,14 @@ async def refresh_token(request: Request):
             detail="Refresh token отсутствует."
         )
     refresh_resp = supabase.auth.refresh_session({"refresh_token": refresh_token_val})
-    refresh_dict = refresh_resp.__dict__
-    if refresh_dict.get("error"):
+    if refresh_resp.status_code != 200 or not refresh_resp.session:
+        err_msg = refresh_resp.error.message if refresh_resp.error else "Не удалось обновить сессию."
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=refresh_dict["error"].message
+            detail=err_msg
         )
-    session = refresh_dict.get("session")
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Не удалось обновить сессию."
-        )
-    new_access_token = session.access_token
-    new_refresh_token = session.refresh_token
-
-    # Логирование обновленных токенов
-    logging.info(f"New Access Token: {new_access_token}")
-    logging.info(f"New Refresh Token: {new_refresh_token}")
-
-    # Возвращаем обновленные токены
-    return {"access_token": new_access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
+    session = refresh_resp.session
+    return {"access_token": session.access_token, "refresh_token": session.refresh_token, "token_type": "bearer"}
 
 # Эндпоинт: получение данных текущего пользователя через запрос getsession от Supabase.
 @router.get("/users/me")
@@ -165,10 +134,11 @@ async def get_user_details(token: HTTPAuthorizationCredentials = Depends(HTTPBea
     Передается access token в заголовке Authorization в формате Bearer.
     """
     user_resp = supabase.auth.get_user(token.credentials)
-    if user_resp.error:
+    if user_resp.status_code != 200 or not user_resp.user:
+        err_msg = user_resp.error.message if user_resp.error else "Ошибка получения данных пользователя."
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=user_resp.error.message
+            detail=err_msg
         )
     return {"user": user_resp.user}
 
@@ -179,7 +149,7 @@ async def get_widgets_by_email(user_email: UserEmail):
     """
     # Получаем пользователя по email
     user_response = supabase.from_("users").select("id").eq("email", user_email.email).execute()
-    if user_response.status_code != 200 or not user_response.data:
+    if not user_response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Пользователь не найден"
@@ -189,7 +159,7 @@ async def get_widgets_by_email(user_email: UserEmail):
 
     # Получаем виджеты по user_id
     widgets_response = supabase.from_("widgets").select("*").eq("user_id", user_id).execute()
-    if widgets_response.status_code != 200:
+    if not widgets_response.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка при получении виджетов"
