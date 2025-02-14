@@ -42,6 +42,9 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class UserEmail(BaseModel):
+    email: EmailStr
+
 # PATCH: Можно добавить дополнительные модели для refresh, logout и т.д.
 
 # Эндпоинт: регистрация нового пользователя
@@ -167,4 +170,29 @@ async def get_user_details(token: HTTPAuthorizationCredentials = Depends(HTTPBea
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=user_resp.error.message
         )
-    return {"user": user_resp.user} 
+    return {"user": user_resp.user}
+
+@router.post("/widgets")
+async def get_widgets_by_email(user_email: UserEmail):
+    """
+    Возвращает виджеты, относящиеся к пользователю по email.
+    """
+    # Получаем пользователя по email
+    user_response = supabase.from_("users").select("id").eq("email", user_email.email).execute()
+    if user_response.error or not user_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь не найден"
+        )
+    
+    user_id = user_response.data[0]["id"]
+
+    # Получаем виджеты по user_id
+    widgets_response = supabase.from_("widgets").select("*").eq("user_id", user_id).execute()
+    if widgets_response.error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при получении виджетов"
+        )
+
+    return widgets_response.data 
