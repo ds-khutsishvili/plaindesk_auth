@@ -151,7 +151,7 @@ async def get_user_details(token: HTTPAuthorizationCredentials = Depends(HTTPBea
     Возвращает данные авторизованного пользователя.
     Передается access token в заголовке Authorization в формате Bearer.
     """
-    user_resp = supabase.auth.api.get_user(token.credentials)
+    user_resp = supabase.auth.get_user(token.credentials)
     if user_resp.error:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
