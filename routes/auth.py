@@ -95,6 +95,11 @@ async def login(user: UserIn):
         )
     access_token = session.access_token
     refresh_token = session.refresh_token
+
+    # Логирование токенов
+    logging.info(f"Access Token: {access_token}")
+    logging.info(f"Refresh Token: {refresh_token}")
+
     # Возвращаем оба токена в ответе
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
@@ -141,6 +146,11 @@ async def refresh_token(request: Request):
         )
     new_access_token = session.access_token
     new_refresh_token = session.refresh_token
+
+    # Логирование обновленных токенов
+    logging.info(f"New Access Token: {new_access_token}")
+    logging.info(f"New Refresh Token: {new_refresh_token}")
+
     # Возвращаем обновленные токены
     return {"access_token": new_access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
 
