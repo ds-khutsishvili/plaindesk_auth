@@ -1,44 +1,39 @@
 """
-В данном модуле описаны API эндпоинты для авторизации:
-- /register — регистрация нового пользователя;
-- /login — аутентификация пользователя с выдачей JWT токена.
-
-Эндпоинты используют зависимости для подключения к базе данных и бизнес-логику, 
-содержащуюся в сервисном слое, для обеспечения современных стандартов авторизации.
+В данном модуле реализованы API-эндпоинты для авторизации:
+- POST /register   — регистрация нового пользователя;
+- POST /login      — аутентификация и выдача JWT (access token), хранение refresh token в HttpOnly cookie;
+- POST /logout     — завершение сессии и удаление refresh token;
+- POST /refresh    — обновление access token с использованием refresh token;
+- GET /users/me    — получение данных авторизованного пользователя через Supabase.
 """
 
 import os
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 
 from supabase import create_client, Client
-from jose import jwt
-from passlib.context import CryptContext
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
 # Загрузка переменных окружения
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # используйте анонимный или сервисный ключ
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # Анонимный или сервисный ключ
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your_secret_key")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Остальные JWT настройки можно использовать, если потребуется создавать свои токены
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise Exception("Необходимо установить SUPABASE_URL и SUPABASE_KEY в переменных окружения")
 
-# Инициализируем клиента Supabase
+# Инициализация клиента Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Модели для запроса и ответа
+# Модели запросов и ответов
 class UserIn(BaseModel):
     email: EmailStr
     password: str
@@ -47,107 +42,121 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-# Функция для создания JWT токена
-def create_jwt_token(subject: str):
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": subject, "exp": expire}
-    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=ALGORITHM)
-    return token
+# PATCH: Можно добавить дополнительные модели для refresh, logout и т.д.
 
+# Эндпоинт: регистрация нового пользователя
 @router.post("/register")
 async def register(user: UserIn):
     """
-    Эндпоинт для регистрации пользователя.
-
-    Регистрируем пользователя через Supabase и запускаем процесс подтверждения email,
-    передавая параметр "email_redirect_to" внутри опций с URL-адресом подтверждения.
+    Регистрирует пользователя через Supabase и отправляет письмо для подтверждения email.
     """
-    response = supabase.auth.sign_up({
+    resp = supabase.auth.sign_up({
         "email": user.email,
         "password": user.password,
         "options": {
-            "email_redirect_to": "https://plaindesk-auth-d79316ebc4f2.herokuapp.com/auth/verify"
+            "email_redirect_to": os.getenv("EMAIL_REDIRECT_URL", "https://YOUR_FRONTEND_URL/verify")  # Используем переменную окружения
         }
     })
+    # Логируем ответ для отладки
+    logging.info(f"Supabase sign up response: {resp}")
 
-    # Логируем полный ответ от Supabase
-    logging.info(f"Supabase response: {response}")
-
-    # Проверяем наличие ошибки в ответе
-    if response.user is None:
-        error_message = response.error.message if response.error else "Ошибка регистрации: пользователь не создан."
+    if resp.user is None:
+        err_msg = resp.error.message if resp.error else "Ошибка регистрации: пользователь не создан."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_message
+            detail=err_msg
         )
-
-    # Возвращаем данные пользователя, если регистрация успешна
     return {
-        "message": "Регистрация успешна! Проверьте вашу почту для подтверждения email.",
-        "user": response.user
+        "message": "Регистрация успешна! Проверьте свою почту для подтверждения email.",
+        "user": resp.user
     }
 
-@router.get("/verify")
-async def verify_email():
-    """
-    Эндпоинт для обработки редиректа после подтверждения email.
-    
-    После того как пользователь переходит по ссылке из письма,
-    ему возвращается сообщение об успешном подтверждении email.
-    """
-    return {"message": "Ваш email успешно подтверждён! Теперь вы можете войти в систему."}
-
-@router.get("/logout")
-async def logout():
-    """
-    Эндпоинт для выхода из приложения и закрытия сессии через Supabase.
-    """
-    response = supabase.auth.sign_out()
-    
-    if response.user is None:
-        error_message = response.error.message if response.error else "Ошибка при выходе из системы"
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail=error_message
-        )
-
-    return {"message": "Вы успешно вышли из приложения"}
-
+# Эндпоинт: аутентификация (логин)
 @router.post("/login", response_model=Token)
-async def login(user: UserIn):
+async def login(user: UserIn, response: Response):
     """
-    Аутентификация пользователя через Supabase и выдача JWT токена.
+    Аутентифицирует пользователя через Supabase и возвращает access token.
+    refresh token устанавливается в HttpOnly cookie.
     """
-    response = supabase.auth.sign_in_with_password({"email": user.email, "password": user.password})
-    response_dict = response.__dict__
-    if response_dict.get("error"):
+    auth_resp = supabase.auth.sign_in_with_password({
+        "email": user.email,
+        "password": user.password
+    })
+    auth_dict = auth_resp.__dict__
+    if auth_dict.get("error"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=response_dict["error"].message
+            detail=auth_dict["error"].message
         )
-    # Получаем токен из ответа Supabase
-    access_token = response_dict["session"].access_token
+    session = auth_dict.get("session")
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Сессия не создана."
+        )
+    access_token = session.access_token
+    refresh_token = session.refresh_token
+    # Сохраняем refresh token в HttpOnly cookie
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True)
     return {"access_token": access_token, "token_type": "bearer"}
 
-security = HTTPBearer()
+# Эндпоинт: выход (logout)
+@router.post("/logout")
+async def logout(response: Response):
+    """
+    Завершает сессию пользователя через Supabase и очищает refresh token cookie.
+    """
+    signout_resp = supabase.auth.sign_out()
+    signout_dict = signout_resp.__dict__
+    if signout_dict.get("error"):
+        err_msg = signout_dict["error"].message
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+    # Очистка refresh token cookie
+    response.delete_cookie("refresh_token")
+    return {"message": "Вы успешно вышли из приложения."}
 
-def get_current_user(token: HTTPAuthorizationCredentials = Depends(security)):
+# Эндпоинт: обновление access token через refresh token
+@router.post("/refresh", response_model=Token)
+async def refresh_token(request: Request, response: Response):
     """
-    Использует запрос getsession от Supabase для получения данных сессии/пользователя.
+    Обновляет access token, используя refresh token, который хранится в HttpOnly cookie.
     """
-    # Используем API-запрос Supabase для получения информации о пользователе по JWT
-    user_response = supabase.auth.api.get_user(token.credentials)
-    if user_response.error:
+    refresh_token_val = request.cookies.get("refresh_token")
+    if not refresh_token_val:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=user_response.error.message
+            detail="Refresh token отсутствует."
         )
-    return user_response.user
+    refresh_resp = supabase.auth.refresh_session({"refresh_token": refresh_token_val})
+    refresh_dict = refresh_resp.__dict__
+    if refresh_dict.get("error"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=refresh_dict["error"].message
+        )
+    session = refresh_dict.get("session")
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Не удалось обновить сессию."
+        )
+    new_access_token = session.access_token
+    new_refresh_token = session.refresh_token
+    # Обновляем refresh token в cookie
+    response.set_cookie(key="refresh_token", value=new_refresh_token, httponly=True, secure=True)
+    return {"access_token": new_access_token, "token_type": "bearer"}
 
-@router.get("/me")
-async def get_me(user = Depends(get_current_user)):
+# Эндпоинт: получение данных текущего пользователя через запрос getsession от Supabase.
+@router.get("/users/me")
+async def get_user_details(token: HTTPAuthorizationCredentials = Depends(HTTPBearer())):
     """
-    Эндпоинт для получения данных текущего пользователя.
-    Реализовано с использованием запроса getsession в Supabase.
+    Возвращает данные авторизованного пользователя.
+    Передается access token в заголовке Authorization в формате Bearer.
     """
-    return {"user": user}
+    user_resp = supabase.auth.api.get_user(token.credentials)
+    if user_resp.error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=user_resp.error.message
+        )
+    return {"user": user_resp.user} 
