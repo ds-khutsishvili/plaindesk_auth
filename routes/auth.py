@@ -73,10 +73,9 @@ async def register(user: UserIn):
 
 # Эндпоинт: аутентификация (логин)
 @router.post("/login", response_model=Token)
-async def login(user: UserIn, response: Response):
+async def login(user: UserIn):
     """
-    Аутентифицирует пользователя через Supabase и возвращает access token.
-    refresh token устанавливается в HttpOnly cookie.
+    Аутентифицирует пользователя через Supabase и возвращает access и refresh токены.
     """
     auth_resp = supabase.auth.sign_in_with_password({
         "email": user.email,
@@ -96,17 +95,8 @@ async def login(user: UserIn, response: Response):
         )
     access_token = session.access_token
     refresh_token = session.refresh_token
-    # Сохраняем refresh token в HttpOnly cookie
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=False,
-        secure=True,
-        samesite="None",
-        domain=".vercel.app"  # Доступ к куке для всех поддоменов Vercel
-    )
-    print(response.headers)  # Проверяем, есть ли Set-Cookie в заголовкахавыаываывавыаё 
-    return {"access_token": access_token, "token_type": "bearer"}
+    # Возвращаем оба токена в ответе
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 # Эндпоинт: выход (logout)
 @router.post("/logout")
@@ -125,11 +115,12 @@ async def logout(response: Response):
 
 # Эндпоинт: обновление access token через refresh token
 @router.post("/refresh", response_model=Token)
-async def refresh_token(request: Request, response: Response):
+async def refresh_token(request: Request):
     """
-    Обновляет access token, используя refresh token, который хранится в HttpOnly cookie.
+    Обновляет access token, используя refresh token, который передается в теле запроса.
     """
-    refresh_token_val = request.cookies.get("refresh_token")
+    body = await request.json()
+    refresh_token_val = body.get("refresh_token")
     if not refresh_token_val:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -150,9 +141,8 @@ async def refresh_token(request: Request, response: Response):
         )
     new_access_token = session.access_token
     new_refresh_token = session.refresh_token
-    # Обновляем refresh token в cookie
-    response.set_cookie(key="refresh_token", value=new_refresh_token, httponly=True, secure=True)
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    # Возвращаем обновленные токены
+    return {"access_token": new_access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
 
 # Эндпоинт: получение данных текущего пользователя через запрос getsession от Supabase.
 @router.get("/users/me")
