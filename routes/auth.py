@@ -97,7 +97,14 @@ async def login(user: UserIn, response: Response):
     access_token = session.access_token
     refresh_token = session.refresh_token
     # Сохраняем refresh token в HttpOnly cookie
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True)
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="None"
+    )
+    print(response.headers)  # Проверяем, есть ли Set-Cookie в заголовках
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Эндпоинт: выход (logout)
