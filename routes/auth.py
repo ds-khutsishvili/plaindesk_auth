@@ -60,11 +60,11 @@ async def register(user: UserIn):
             "email_redirect_to": os.getenv("EMAIL_REDIRECT_URL", "https://YOUR_FRONTEND_URL/verify")
         }
     })
-    if resp.status_code != 200 or not resp.user:
-        err_msg = resp.error.message if resp.error else "Ошибка регистрации: пользователь не создан."
+    if resp.user is None:
+        error_message = resp.error.message if resp.error else "Ошибка регистрации: пользователь не создан."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=err_msg
+            detail=error_message
         )
     return {
         "message": "Регистрация успешна! Проверьте свою почту для подтверждения email.",
@@ -81,11 +81,11 @@ async def login(user: UserIn):
         "email": user.email,
         "password": user.password
     })
-    if auth_resp.status_code != 200 or not auth_resp.session:
-        err_msg = auth_resp.error.message if auth_resp.error else "Ошибка аутентификации."
+    if auth_resp.session is None:
+        error_message = auth_resp.error.message if auth_resp.error else "Ошибка аутентификации."
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=err_msg
+            detail=error_message
         )
     session = auth_resp.session
     return {"access_token": session.access_token, "refresh_token": session.refresh_token, "token_type": "bearer"}
@@ -97,9 +97,9 @@ async def logout(response: Response):
     Завершает сессию пользователя через Supabase и очищает refresh token cookie.
     """
     signout_resp = supabase.auth.sign_out()
-    if signout_resp.status_code != 200:
-        err_msg = signout_resp.error.message if signout_resp.error else "Ошибка выхода."
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+    if signout_resp.error is not None:
+        error_message = signout_resp.error.message if signout_resp.error else "Ошибка выхода."
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_message)
     response.delete_cookie("refresh_token")
     return {"message": "Вы успешно вышли из приложения."}
 
@@ -117,11 +117,11 @@ async def refresh_token(request: Request):
             detail="Refresh token отсутствует."
         )
     refresh_resp = supabase.auth.refresh_session({"refresh_token": refresh_token_val})
-    if refresh_resp.status_code != 200 or not refresh_resp.session:
-        err_msg = refresh_resp.error.message if refresh_resp.error else "Не удалось обновить сессию."
+    if refresh_resp.session is None:
+        error_message = refresh_resp.error.message if refresh_resp.error else "Не удалось обновить сессию."
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=err_msg
+            detail=error_message
         )
     session = refresh_resp.session
     return {"access_token": session.access_token, "refresh_token": session.refresh_token, "token_type": "bearer"}
@@ -134,11 +134,11 @@ async def get_user_details(token: HTTPAuthorizationCredentials = Depends(HTTPBea
     Передается access token в заголовке Authorization в формате Bearer.
     """
     user_resp = supabase.auth.get_user(token.credentials)
-    if user_resp.status_code != 200 or not user_resp.user:
-        err_msg = user_resp.error.message if user_resp.error else "Ошибка получения данных пользователя."
+    if user_resp.user is None:
+        error_message = user_resp.error.message if user_resp.error else "Ошибка получения данных пользователя."
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=err_msg
+            detail=error_message
         )
     return {"user": user_resp.user}
 

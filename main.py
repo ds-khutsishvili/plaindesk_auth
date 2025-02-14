@@ -24,7 +24,7 @@ app = FastAPI(
 # Настройка CORS (для продакшена разрешите только доверенные домены)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://authplaindesk.vercel.app", "https://boardplaindesk.vercel.app"],
+    allow_origins=["https://authplaindesk.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
