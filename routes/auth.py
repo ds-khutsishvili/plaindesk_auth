@@ -100,7 +100,7 @@ async def login(user: UserIn, response: Response):
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
-        httponly=True,
+        httponly=False,
         secure=True,
         samesite="None",
         domain=".vercel.app"  # Доступ к куке для всех поддоменов Vercel
