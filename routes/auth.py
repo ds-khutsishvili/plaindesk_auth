@@ -179,7 +179,7 @@ async def get_widgets_by_email(user_email: UserEmail):
     """
     # Получаем пользователя по email
     user_response = supabase.from_("users").select("id").eq("email", user_email.email).execute()
-    if user_response.error or not user_response.data:
+    if user_response.status_code != 200 or not user_response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Пользователь не найден"
@@ -189,7 +189,7 @@ async def get_widgets_by_email(user_email: UserEmail):
 
     # Получаем виджеты по user_id
     widgets_response = supabase.from_("widgets").select("*").eq("user_id", user_id).execute()
-    if widgets_response.error:
+    if widgets_response.status_code != 200:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка при получении виджетов"
