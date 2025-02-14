@@ -102,9 +102,10 @@ async def login(user: UserIn, response: Response):
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite="None"
+        samesite="None",
+        domain=".vercel.app"  # Доступ к куке для всех поддоменов Vercel
     )
-    print(response.headers)  # Проверяем, есть ли Set-Cookie в заголовках
+    print(response.headers)  # Проверяем, есть ли Set-Cookie в заголовкахавыаываывавыаё 
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Эндпоинт: выход (logout)

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-# Загрузка переменных окружения из .env
+# Загрузка переменных окружения из .env вфывфыв
 load_dotenv()
 
 app = FastAPI(
