@@ -50,10 +50,10 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(security)):
 @router.get("/appointments", response_model=List[Appointment])
 async def get_appointments(user=Depends(get_current_user)):
     """
-    Возвращает список заявок для текущего пользователя.
+    Возвращает список всех заявок в системе.
     """
-    logging.info(f"Получение заявок для пользователя: {user.id}")
-    response = supabase.from_("appointments").select("*").eq("user_id", user.id).execute()
+    logging.info("Получение всех заявок")
+    response = supabase.from_("appointments").select("*").execute()
     logging.info(f"Ответ от Supabase: {response}")
     if not response.data:
         error_message = "Ошибка при получении заявок."
