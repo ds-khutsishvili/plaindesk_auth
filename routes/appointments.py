@@ -22,8 +22,9 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 router = APIRouter()
-security = HTTPBearer()
+security = HTTPBearer()  # Используется для извлечения токена из заголовка Authorization
 
+# Модель данных для заявки
 class Appointment(BaseModel):
     id: int
     user_id: str
@@ -33,10 +34,12 @@ class Appointment(BaseModel):
     created_at: str
     updated_at: str
 
+# Модель данных для создания заявки
 class AppointmentCreate(BaseModel):
     appointment_date: str
     comments: Optional[str] = None
 
+# Функция для получения текущего пользователя на основе токена
 def get_current_user(token: HTTPAuthorizationCredentials = Depends(security)):
     user_resp = supabase.auth.get_user(token.credentials)
     if user_resp.user is None:
@@ -50,10 +53,10 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(security)):
 @router.get("/appointments", response_model=List[Appointment])
 async def get_appointments(user=Depends(get_current_user)):
     """
-    Возвращает список всех заявок в системе.
+    Возвращает список заявок для текущего пользователя.
     """
-    logging.info("Получение всех заявок")
-    response = supabase.from_("appointments").select("*").execute()
+    logging.info(f"Получение заявок для пользователя: {user.id}")
+    response = supabase.from_("appointments").select("*").eq("user_id", user.id).execute()
     logging.info(f"Ответ от Supabase: {response}")
     if not response.data:
         error_message = "Ошибка при получении заявок."
@@ -67,7 +70,7 @@ async def get_appointments(user=Depends(get_current_user)):
 @router.post("/appointments", response_model=Appointment)
 async def create_appointment(appointment: AppointmentCreate, user=Depends(get_current_user)):
     """
-    Создает новую заявку для текущего пользователя.sfdsfsdfsdfsf
+    Создает новую заявку для текущего пользователя.
     """
     logging.info(f"Создание заявки для пользователя: {user.id} на дату: {appointment.appointment_date}")
     response = supabase.from_("appointments").insert({
