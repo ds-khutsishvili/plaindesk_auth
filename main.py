@@ -5,7 +5,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import auth
+from routes import auth, appointments  # Импортируем новый роутер
 
 app = FastAPI()
 
@@ -20,6 +20,7 @@ app.add_middleware(
 
 # Подключение маршрутов
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(appointments.router, prefix="/api", tags=["appointments"])  # Подключаем роутер для заявок
 
 @app.get("/")
 async def root():

@@ -3,7 +3,7 @@
 Использует Supabase для управления пользователями и сессиями.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr
 from supabase import create_client, Client
 import os
@@ -62,4 +62,26 @@ async def login(user: UserIn):
         "access_token": session.access_token,
         "refresh_token": session.refresh_token,
         "user": response.user
-    } 
+    }
+
+@router.post("/refresh")
+async def refresh_token(request: Request):
+    """
+    Обновляет access token, используя refresh token, который передается в теле запроса.
+    """
+    body = await request.json()
+    refresh_token_val = body.get("refresh_token")
+    if not refresh_token_val:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token отсутствует."
+        )
+    refresh_resp = supabase.auth.refresh_session({"refresh_token": refresh_token_val})
+    if refresh_resp.session is None:
+        error_message = refresh_resp.error.message if refresh_resp.error else "Не удалось обновить сессию."
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=error_message
+        )
+    session = refresh_resp.session
+    return {"access_token": session.access_token} 
