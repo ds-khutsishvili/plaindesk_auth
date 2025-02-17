@@ -1,43 +1,26 @@
-#!/usr/bin/env python3
 """
-Backend Authentication System with FastAPI and Supabase
-
-Это приложение реализует аутентификацию, регистрацию и управление сессиями с
-использованием Supabase в качестве основного поставщика аутентификации и базы данных.
+Основной файл приложения для аутентификации и регистрации пользователей в системе парикмахерской.
+Использует FastAPI и Supabase для управления пользователями и сессиями.
 """
 
 from fastapi import FastAPI
-from routes import auth  # Роутер с эндпоинтами аутентификации
-from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
-import os
+from routes import auth
 
-# Загрузка переменных окружения из .env вфывфыв
-load_dotenv()
+app = FastAPI()
 
-app = FastAPI(
-    title="Backend Authentication System with FastAPI and Supabase",
-    description="Аутентификация, регистрация и управление сессиями через Supabase.",
-    version="1.0"
-)
-
-# Настройка CORS (для продакшена разрешите только доверенные домены)
+# Настройка CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://authplaindesk.vercel.app"],
+    allow_origins=["*"],  # Измените на конкретные домены в продакшене
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Подключаем роутер для аутентификации с префиксом /auth
+# Подключение маршрутов
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-
 
 @app.get("/")
 async def root():
-    return {"message": "Backend Authentication System is running"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
+    return {"message": "Система аутентификации парикмахерской работает"} 
