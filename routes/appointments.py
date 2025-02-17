@@ -49,10 +49,11 @@ async def get_appointments(user=Depends(get_current_user)):
     Возвращает список заявок для текущего пользователя.
     """
     response = supabase.from_("appointments").select("*").eq("user_id", user.id).execute()
-    if response.error:
+    if not response.data:
+        error_message = "Ошибка при получении заявок."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при получении заявок"
+            detail=error_message
         )
     return response.data
 
@@ -66,15 +67,11 @@ async def create_appointment(appointment: AppointmentCreate, user=Depends(get_cu
         "appointment_date": appointment.appointment_date,
         "comments": appointment.comments
     }).execute()
-    if response.error:
-        if "unique constraint" in response.error.message:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Дата уже занята"
-            )
+    if not response.data:
+        error_message = "Дата уже занята" if "unique constraint" in response.error.message else "Ошибка при создании заявки."
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при создании заявки"
+            status_code=status.HTTP_409_CONFLICT if "unique constraint" in response.error.message else status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_message
         )
     return response.data[0]
 
@@ -86,16 +83,18 @@ async def delete_appointment(id: int, user=Depends(get_current_user)):
     # Проверяем, существует ли заявка и принадлежит ли она текущему пользователю
     response = supabase.from_("appointments").select("*").eq("id", id).eq("user_id", user.id).execute()
     if not response.data:
+        error_message = "Заявка не найдена."
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Заявка не найдена"
+            detail=error_message
         )
     
     # Удаляем заявку
     delete_response = supabase.from_("appointments").delete().eq("id", id).execute()
-    if delete_response.error:
+    if not delete_response.data:
+        error_message = "Ошибка при удалении заявки."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при удалении заявки"
+            detail=error_message
         )
     return {"success": True, "message": "Заявка успешно отменена."} 
