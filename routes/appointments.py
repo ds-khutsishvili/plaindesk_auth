@@ -67,7 +67,7 @@ async def get_appointments(user=Depends(get_current_user)):
 @router.post("/appointments", response_model=Appointment)
 async def create_appointment(appointment: AppointmentCreate, user=Depends(get_current_user)):
     """
-    Создает новую заявку для текущего пользователя.
+    Создает новую заявку для текущего пользователя.sfdsfsdfsdfsf
     """
     logging.info(f"Создание заявки для пользователя: {user.id} на дату: {appointment.appointment_date}")
     response = supabase.from_("appointments").insert({
