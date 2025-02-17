@@ -48,7 +48,7 @@ async def get_appointments(user=Depends(get_current_user)):
     """
     Возвращает список заявок для текущего пользователя.
     """
-    response = supabase.from_("appointments").select("*").eq("user_id", user["id"]).execute()
+    response = supabase.from_("appointments").select("*").eq("user_id", user.id).execute()
     if response.error:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -62,7 +62,7 @@ async def create_appointment(appointment: AppointmentCreate, user=Depends(get_cu
     Создает новую заявку для текущего пользователя.
     """
     response = supabase.from_("appointments").insert({
-        "user_id": user["id"],
+        "user_id": user.id,
         "appointment_date": appointment.appointment_date,
         "comments": appointment.comments
     }).execute()
@@ -84,7 +84,7 @@ async def delete_appointment(id: int, user=Depends(get_current_user)):
     Удаляет заявку по ID для текущего пользователя.
     """
     # Проверяем, существует ли заявка и принадлежит ли она текущему пользователю
-    response = supabase.from_("appointments").select("*").eq("id", id).eq("user_id", user["id"]).execute()
+    response = supabase.from_("appointments").select("*").eq("id", id).eq("user_id", user.id).execute()
     if not response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
