@@ -3,12 +3,16 @@
 Использует Supabase для управления заявками.
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from supabase import create_client, Client
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
 
 # Загрузка переменных окружения
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -48,9 +52,12 @@ async def get_appointments(user=Depends(get_current_user)):
     """
     Возвращает список заявок для текущего пользователя.
     """
+    logging.info(f"Получение заявок для пользователя: {user.id}")
     response = supabase.from_("appointments").select("*").eq("user_id", user.id).execute()
+    logging.info(f"Ответ от Supabase: {response}")
     if not response.data:
         error_message = "Ошибка при получении заявок."
+        logging.error(error_message)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_message
@@ -62,13 +69,16 @@ async def create_appointment(appointment: AppointmentCreate, user=Depends(get_cu
     """
     Создает новую заявку для текущего пользователя.
     """
+    logging.info(f"Создание заявки для пользователя: {user.id} на дату: {appointment.appointment_date}")
     response = supabase.from_("appointments").insert({
         "user_id": user.id,
         "appointment_date": appointment.appointment_date,
         "comments": appointment.comments
     }).execute()
+    logging.info(f"Ответ от Supabase: {response}")
     if not response.data:
         error_message = "Дата уже занята" if "unique constraint" in response.error.message else "Ошибка при создании заявки."
+        logging.error(error_message)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT if "unique constraint" in response.error.message else status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_message
@@ -80,10 +90,13 @@ async def delete_appointment(id: int, user=Depends(get_current_user)):
     """
     Удаляет заявку по ID для текущего пользователя.
     """
+    logging.info(f"Удаление заявки с ID: {id} для пользователя: {user.id}")
     # Проверяем, существует ли заявка и принадлежит ли она текущему пользователю
     response = supabase.from_("appointments").select("*").eq("id", id).eq("user_id", user.id).execute()
+    logging.info(f"Ответ от Supabase: {response}")
     if not response.data:
         error_message = "Заявка не найдена."
+        logging.error(error_message)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=error_message
@@ -91,8 +104,10 @@ async def delete_appointment(id: int, user=Depends(get_current_user)):
     
     # Удаляем заявку
     delete_response = supabase.from_("appointments").delete().eq("id", id).execute()
+    logging.info(f"Ответ от Supabase при удалении: {delete_response}")
     if not delete_response.data:
         error_message = "Ошибка при удалении заявки."
+        logging.error(error_message)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_message
